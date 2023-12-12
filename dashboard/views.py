@@ -59,40 +59,43 @@ def external_service_request(request):
     else:
         return JsonResponse({'error': 'La solicitud al servicio externo falló.'}, status=response.status_code)
 
+
 def obtener_datos_ventas(request):
-    url = 'http://107.22.174.168:8030/api/ventas/'  # URL de la solicitud GET
+    url = 'http://localhost:8000/api/obtener_ventas'
+    auth_header = request.headers.get('Authorization')
 
     try:
-        
-        response = requests.get(url)
+        headers = {'Authorization': auth_header} if auth_header else {}
 
-        
+        # Realiza la solicitud GET con el encabezado de autorización
+        response = requests.get(url, headers=headers)
+
         if response.status_code == 200:
-            
             data = response.json()
 
-            
+            # Procesamiento de datos
             conteo_estado_venta = {"A": 0, "P": 0, "C": 0}
             suma_productos = {}
             conteo_ejecutivo_id = {}
+            nombres_ejecutivos = {}  # Diccionario para almacenar nombres de ejecutivos por ID
+            conteo_ejecutivos_nombres = {}  # Diccionario para asociar conteo de ejecutivos con sus nombres
 
-            
             for venta in data:
                 estado_venta = venta.get("estado_venta")
                 productos = venta.get("productos", [])
                 ejecutivo_id = venta.get("ejecutivo_id")
+                nombre_ejecutivo = venta.get("nombre_ejecutivo")
 
-               
+                # Incrementar el conteo por estado de venta
                 if estado_venta in conteo_estado_venta:
                     conteo_estado_venta[estado_venta] += 1
 
-                
+                # Procesar la suma de productos
                 for producto in productos:
                     producto_id = producto.get("id")
                     nombre_producto = producto.get("nombre")
                     cantidad_producto = producto.get("cantidad", 0)
 
-                    
                     nombre_producto = html.unescape(nombre_producto)
 
                     if producto_id in suma_productos:
@@ -100,23 +103,37 @@ def obtener_datos_ventas(request):
                     else:
                         suma_productos[producto_id] = {"nombre": nombre_producto, "cantidad": cantidad_producto}
 
-                
+                # Conteo por ejecutivo
                 if ejecutivo_id:
                     if ejecutivo_id in conteo_ejecutivo_id:
                         conteo_ejecutivo_id[ejecutivo_id] += 1
                     else:
                         conteo_ejecutivo_id[ejecutivo_id] = 1
 
-            
+                    # Almacenar el nombre del ejecutivo por su ID
+                    if ejecutivo_id not in nombres_ejecutivos and nombre_ejecutivo:
+                        nombres_ejecutivos[ejecutivo_id] = nombre_ejecutivo
+
+            # Asociar conteo de ejecutivos con sus nombres
+            for ejecutivo_id, conteo in conteo_ejecutivo_id.items():
+                if ejecutivo_id in nombres_ejecutivos:
+                    nombre_ejecutivo = nombres_ejecutivos[ejecutivo_id]
+                    conteo_ejecutivos_nombres[nombre_ejecutivo] = conteo
+
+            # Construir resultados
             resultados = {
                 "conteo_estado_venta": conteo_estado_venta,
                 "suma_productos": suma_productos,
-                "conteo_ejecutivo_id": conteo_ejecutivo_id
+                "conteo_ejecutivo_id": conteo_ejecutivo_id,
+                "nombres_ejecutivos": nombres_ejecutivos,
+                "conteo_ejecutivos_nombres": conteo_ejecutivos_nombres
             }
 
             return JsonResponse(resultados, safe=False)
 
         else:
             return JsonResponse({'error': f'La solicitud GET falló con el código de estado {response.status_code}'})
+
     except requests.exceptions.RequestException as e:
         return JsonResponse({'error': f'Error al realizar la solicitud GET: {e}'})
+
