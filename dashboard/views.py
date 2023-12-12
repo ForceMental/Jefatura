@@ -61,7 +61,7 @@ def external_service_request(request):
 
 
 def obtener_datos_ventas(request):
-    url = 'http://localhost:8000/api/obtener_ventas'
+    url = 'http://107.22.174.168:8010/api/obtener_ventas'
     auth_header = request.headers.get('Authorization')
 
     try:
